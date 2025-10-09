@@ -62,6 +62,11 @@
         // NEW variable to hold the desired zip name
         let zipFolderName = ''; 
 
+        function isIgnoredFile(file) {
+            // Ignore files starting with a dot (e.g., .DS_Store, ._file.jpg, .gitignore)
+            return file.name.startsWith('.');
+        }
+
         // Helper function to check for valid images (ignoring dotfiles and non-images)
         function isValidImage(file) {
             // 1. Ignore files starting with a dot (e.g., .DS_Store, ._file.jpg)
@@ -83,7 +88,7 @@
             selectedFiles = [];
             const allSelectedFiles = Array.from(e.target.files);
             // Filter files immediately after selection
-            selectedFiles = Array.from(e.target.files).filter(isValidImage);
+            selectedFiles = allSelectedFiles.filter(file => !isIgnoredFile(file));
             
             // Clear zipFolderName if files are selected via dialog (could be mixed files/folders)
             // We only rely on a single folder drop for naming.
@@ -105,7 +110,7 @@
                     }
                 }
             }
-            
+
             updateFileListStatus();
         });
 
@@ -188,7 +193,7 @@
         function traverseFileTree(item) {
             if (item.isFile) {
                 item.file(file => {
-                    if (isValidImage(file)) {
+                    if (!isIgnoredFile(file)) {
                          selectedFiles.push(file);
                     }
                     onTraversalComplete(); 

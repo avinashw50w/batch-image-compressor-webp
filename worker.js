@@ -6,6 +6,12 @@ const path = require('path');
 const archiver = require('archiver');
 const fsSync = require('fs');
 
+function shouldCompress(fileName) {
+    const ext = path.extname(fileName).toLowerCase();
+    return ext === '.jpg' || ext === '.jpeg' || ext === '.png';
+}
+
+
 async function compressAndZip() {
     const { files, settings, uploadDir, tempCompressedDir, batchId, zipFolderName } = workerData; // <-- DESTRUCTURE NEW VARIABLE
     let completedCount = 0;
@@ -26,24 +32,45 @@ async function compressAndZip() {
         for (const file of files) {
             const originalPath = path.join(uploadDir, file.originalname);
             const fileNameWithoutExt = path.parse(file.originalname).name;
-            const outputFileName = `${fileNameWithoutExt}.webp`;
 
-            // ... (Compression logic using sharp remains here) ...
-            await sharp(originalPath)
-                .resize({
-                    width: settings.maxWidth,
-                    height: settings.maxHeight,
-                    fit: 'inside', 
-                    withoutEnlargement: true 
-                })
-                .webp({ quality: settings.quality, alphaQuality: 100 })
-                .toBuffer()
-                .then(compressedBuffer => {
+            try {
+
+                if (shouldCompress(file.originalname)) {
+                    const outputFileName = `${fileNameWithoutExt}.webp`;
+                    console.log(file.mimetype)
+                    // ... (Compression logic using sharp remains here) ...
+                    const compressedBuffer = await sharp(originalPath)
+                        .resize({
+                            width: settings.maxWidth,
+                            height: settings.maxHeight,
+                            fit: 'inside', 
+                            withoutEnlargement: true 
+                        })
+                        .webp({ quality: settings.quality, alphaQuality: 100 })
+                        .toBuffer()
+                        .catch(err => {
+                            console.warn(`Sharp failed to read ${file.originalname} for compression. Including as is.`, err.message);
+                            // Throw to fall into the catch block and use the non-image logic below
+                            throw new Error('Sharp Read Failure'); 
+                        });
+                    
+                    // Append compressed image to zip
                     archive.append(compressedBuffer, { name: outputFileName });
-                })
-                .catch(err => {
-                    console.error(`Error compressing ${file.originalname}:`, err);
-                });
+
+                } else {
+                    // --- NON-IMAGE LOGIC (Include as is) ---
+                    const outputFileName = file.originalname;
+                    
+                    // Append the original file stream/buffer without processing
+                    const fileStream = fsSync.createReadStream(originalPath);
+                    
+                    archive.append(fileStream, { name: outputFileName });
+                    // Note: The file's original size/extension is preserved here.
+                }
+            } catch (err) {
+                console.error(`Error processing file ${file.originalname}:`, err.message);
+                // File is skipped if streaming or reading fails.
+            }
 
             completedCount++;
             parentPort.postMessage({ type: 'progress', completed: completedCount });
