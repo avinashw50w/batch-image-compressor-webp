@@ -37,7 +37,6 @@ async function compressAndZip() {
 
                 if (shouldCompress(file.originalname)) {
                     const outputFileName = `${fileNameWithoutExt}.webp`;
-                    console.log(file.mimetype)
                     // ... (Compression logic using sharp remains here) ...
                     const compressedBuffer = await sharp(originalPath)
                         .resize({
