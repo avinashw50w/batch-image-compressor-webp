@@ -25,9 +25,12 @@ async function compressAndZip() {
 
         archive.pipe(output);
 
+        const filesToCleanup = [];
+
         for (const file of files) {
             const originalPath = path.join(uploadDir, file.originalname);
             const fileNameWithoutExt = path.parse(file.originalname).name;
+            filesToCleanup.push(originalPath);
 
             try {
                 if (shouldCompress(file.originalname)) {
@@ -49,8 +52,8 @@ async function compressAndZip() {
 
                     archive.append(compressedBuffer, { name: outputFileName });
                 } else {
-                    const fileStream = fsSync.createReadStream(originalPath);
-                    archive.append(fileStream, { name: file.originalname });
+                    const fileBuffer = await fs.readFile(originalPath);
+                    archive.append(fileBuffer, { name: file.originalname });
                 }
             } catch (err) {
                 console.error(`Error processing file ${file.originalname}:`, err.message);
@@ -58,13 +61,14 @@ async function compressAndZip() {
 
             completedCount++;
             parentPort.postMessage({ type: 'progress', completed: completedCount });
-
-            await fs.unlink(originalPath).catch(console.error);
         }
 
         await archive.finalize();
 
-        output.on('close', () => {
+        output.on('close', async () => {
+            for (const filePath of filesToCleanup) {
+                await fs.unlink(filePath).catch(console.error);
+            }
             parentPort.postMessage({ type: 'complete', zipPath, zipName });
         });
 
