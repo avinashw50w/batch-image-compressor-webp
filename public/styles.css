@@ -3,7 +3,7 @@ body {
     background-color: #f4f7f9;
     display: flex;
     justify-content: center;
-    align-items: flex-start; /* Align to the top of the viewport */
+    align-items: flex-start;
     padding-top: 50px;
     min-height: 100vh;
     margin: 0;
@@ -15,7 +15,7 @@ body {
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
     padding: 40px;
     width: 100%;
-    max-width: 550px; /* Constrain width to look like the screenshot */
+    max-width: 550px;
 }
 
 h1 {
@@ -41,7 +41,6 @@ p {
     margin-bottom: 30px;
 }
 
-/* --- Drop Area Styling --- */
 #drop-area {
     border: 2px dashed #007bff;
     border-radius: 8px;
@@ -60,7 +59,6 @@ p {
     border-color: #0056b3;
 }
 
-/* --- Settings Grid --- */
 .settings-grid {
     display: flex;
     justify-content: space-between;
@@ -84,7 +82,7 @@ p {
     padding: 10px 12px;
     border: 1px solid #ccc;
     border-radius: 6px;
-    box-sizing: border-box; /* Include padding in the element's total width and height */
+    box-sizing: border-box;
     text-align: center;
     color: #333;
 }
@@ -95,7 +93,6 @@ p {
     box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
 }
 
-/* --- File Status Area --- */
 #file-list-status {
     text-align: center;
     padding: 15px;
@@ -107,30 +104,33 @@ p {
     margin-bottom: 30px;
 }
 
-/* --- Button --- */
 #compressBtn {
     width: 100%;
     padding: 15px;
-    background-color: #a9a9a9; /* Grey color from screenshot */
+    background-color: #a9a9a9;
     border: none;
     border-radius: 6px;
     color: white;
     font-size: 16px;
     font-weight: bold;
-    cursor: pointer;
+    cursor: not-allowed;
     transition: background-color 0.2s;
 }
 
-#compressBtn:hover:not(:disabled) {
-    background-color: #8b8b8b;
+#compressBtn.active {
+    background-color: #28a745;
+    cursor: pointer;
+}
+
+#compressBtn.active:hover {
+    background-color: #1e7e34;
 }
 
 #compressBtn:disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
+    background-color: #a9a9a9 !important;
+    cursor: not-allowed !important;
 }
 
-/* --- Progress Bar Section (Hidden in screenshot, but necessary for feature) --- */
 .progress-section {
     margin-top: 30px;
     padding-top: 20px;
@@ -168,33 +168,4 @@ p {
     color: #007bff;
     text-decoration: none;
     font-weight: bold;
-}
-
-/* --- Button Active/Disabled States --- */
-#compressBtn {
-    width: 100%;
-    padding: 15px;
-    background-color: #a9a9a9; /* Default Grey (Disabled) */
-    border: none;
-    border-radius: 6px;
-    color: white;
-    font-size: 16px;
-    font-weight: bold;
-    cursor: not-allowed;
-    transition: background-color 0.2s;
-}
-
-#compressBtn.active {
-    background-color: #28a745; /* Active Green */
-    cursor: pointer;
-}
-
-#compressBtn.active:hover {
-    background-color: #1e7e34;
-}
-
-#compressBtn:disabled {
-    /* Ensures the disabled state is grey, even if the 'active' class is toggled */
-    background-color: #a9a9a9 !important;
-    cursor: not-allowed !important;
 }
