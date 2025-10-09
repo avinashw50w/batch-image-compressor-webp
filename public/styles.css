@@ -1,0 +1,200 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f7f9;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start; /* Align to the top of the viewport */
+    padding-top: 50px;
+    min-height: 100vh;
+    margin: 0;
+}
+
+.container {
+    background-color: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    padding: 40px;
+    width: 100%;
+    max-width: 550px; /* Constrain width to look like the screenshot */
+}
+
+h1 {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: bold;
+    color: #333;
+    margin-top: 0;
+    margin-bottom: 30px;
+}
+
+h1 .rocket {
+    margin-right: 10px;
+    font-size: 28px;
+    line-height: 1;
+}
+
+p {
+    text-align: center;
+    color: #666;
+    margin-bottom: 30px;
+}
+
+/* --- Drop Area Styling --- */
+#drop-area {
+    border: 2px dashed #007bff;
+    border-radius: 8px;
+    padding: 30px 20px;
+    text-align: center;
+    color: #007bff;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s, border-color 0.2s;
+    margin-bottom: 20px;
+}
+
+#drop-area.highlight,
+#drop-area:hover {
+    background-color: #e6f3ff;
+    border-color: #0056b3;
+}
+
+/* --- Settings Grid --- */
+.settings-grid {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.setting-group {
+    flex: 1;
+}
+
+.setting-group label {
+    display: block;
+    font-size: 14px;
+    color: #555;
+    margin-bottom: 5px;
+}
+
+.setting-group input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    box-sizing: border-box; /* Include padding in the element's total width and height */
+    text-align: center;
+    color: #333;
+}
+
+.setting-group input:focus {
+    border-color: #007bff;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+}
+
+/* --- File Status Area --- */
+#file-list-status {
+    text-align: center;
+    padding: 15px;
+    border: 1px solid #eee;
+    background-color: #fafafa;
+    border-radius: 6px;
+    color: #777;
+    margin-top: 0;
+    margin-bottom: 30px;
+}
+
+/* --- Button --- */
+#compressBtn {
+    width: 100%;
+    padding: 15px;
+    background-color: #a9a9a9; /* Grey color from screenshot */
+    border: none;
+    border-radius: 6px;
+    color: white;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+#compressBtn:hover:not(:disabled) {
+    background-color: #8b8b8b;
+}
+
+#compressBtn:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* --- Progress Bar Section (Hidden in screenshot, but necessary for feature) --- */
+.progress-section {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+}
+
+#progress-bar-container {
+    background-color: #e9ecef;
+    border-radius: 5px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+#progress-bar {
+    height: 20px;
+    width: 0%;
+    background-color: #28a745;
+    transition: width 0.5s ease;
+    text-align: center;
+    line-height: 20px;
+    color: white;
+    font-size: 12px;
+}
+
+#progress-text {
+    text-align: center;
+    font-size: 14px;
+    color: #555;
+}
+
+#download-link {
+    display: block;
+    text-align: center;
+    margin-top: 15px;
+    color: #007bff;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+/* --- Button Active/Disabled States --- */
+#compressBtn {
+    width: 100%;
+    padding: 15px;
+    background-color: #a9a9a9; /* Default Grey (Disabled) */
+    border: none;
+    border-radius: 6px;
+    color: white;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: not-allowed;
+    transition: background-color 0.2s;
+}
+
+#compressBtn.active {
+    background-color: #28a745; /* Active Green */
+    cursor: pointer;
+}
+
+#compressBtn.active:hover {
+    background-color: #1e7e34;
+}
+
+#compressBtn:disabled {
+    /* Ensures the disabled state is grey, even if the 'active' class is toggled */
+    background-color: #a9a9a9 !important;
+    cursor: not-allowed !important;
+}

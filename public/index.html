@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Batch Image Compressor</title>
+    <link rel="stylesheet" href="styles.css"> </head>
+<body>
+    <div class="container">
+        <h1><span class="rocket">🚀</span> Batch Image Compressor</h1>
+        <p>Drop files or a folder, adjust settings, and get a compressed zip file.</p>
+
+        <form id="compressionForm">
+            <div id="drop-area">
+                Click or Drop Files/Folder Here
+            </div>
+            <input type="file" id="fileInput" name="images" multiple style="display: none;" webkitdirectory directory>
+            
+            <div class="settings-grid">
+                <div class="setting-group">
+                    <label>Max Width (px)</label>
+                    <input type="number" name="maxWidth" value="1280" placeholder="Default: 1280">
+                </div>
+                <div class="setting-group">
+                    <label>Max Height (px)</label>
+                    <input type="number" name="maxHeight" value="1280" placeholder="Default: 1280">
+                </div>
+                <div class="setting-group">
+                    <label>Quality (1-100)</label>
+                    <input type="number" name="quality" value="80" placeholder="Default: 80">
+                </div>
+            </div>
+
+            <p id="file-list-status">No files selected.</p>
+
+            <button type="submit" id="compressBtn" disabled>Compress Images</button>
+        </form>
+
+        <div class="progress-section" style="display: none;" id="progress-section">
+            <h2>Processing...</h2>
+            <div id="progress-bar-container">
+                <div id="progress-bar">0%</div>
+            </div>
+            <p id="progress-text">Status: Idle</p>
+            <a id="download-link" style="display: none;"></a>
+        </div>
+    </div>
+
+    <script>
+        const dropArea = document.getElementById('drop-area');
+        const fileInput = document.getElementById('fileInput');
+        const form = document.getElementById('compressionForm');
+        const compressBtn = document.getElementById('compressBtn');
+        const fileListStatus = document.getElementById('file-list-status');
+        const progressSection = document.getElementById('progress-section');
+        const progressBar = document.getElementById('progress-bar');
+        const progressText = document.getElementById('progress-text');
+        const downloadLink = document.getElementById('download-link');
+        let selectedFiles = [];
+
+        let pendingTraversalOperations = 0;
+        // NEW variable to hold the desired zip name
+        let zipFolderName = ''; 
+
+        // Helper function to check for valid images (ignoring dotfiles and non-images)
+        function isValidImage(file) {
+            // 1. Ignore files starting with a dot (e.g., .DS_Store, ._file.jpg)
+            if (file.name.startsWith('.')) {
+                return false;
+            }
+            // 2. Ignore non-image formats (check common MIME types)
+            if (!file.type.startsWith('image/')) {
+                return false;
+            }
+            return true;
+        }
+
+        // --- UI Updates and Drag/Drop Handlers ---
+        dropArea.addEventListener('click', () => fileInput.click());
+
+        // Handle file selection from the CLICK dialog
+        fileInput.addEventListener('change', (e) => {
+            selectedFiles = [];
+            const allSelectedFiles = Array.from(e.target.files);
+            // Filter files immediately after selection
+            selectedFiles = Array.from(e.target.files).filter(isValidImage);
+            
+            // Clear zipFolderName if files are selected via dialog (could be mixed files/folders)
+            // We only rely on a single folder drop for naming.
+            zipFolderName = ''; 
+
+            // Check if files were selected AND if they contain a webkitRelativePath (indicating a folder selection)
+            if (selectedFiles.length > 0) {
+                const firstFile = allSelectedFiles[0];
+                
+                // This property is set by the browser when 'webkitdirectory' is used.
+                if (firstFile.webkitRelativePath) {
+                    // The path looks like: "FolderName/Subfolder/file.jpg"
+                    // We split by the path separator and take the first element (the root folder name).
+                    const parts = firstFile.webkitRelativePath.split('/');
+                    if (parts.length > 0) {
+                        // The root folder name is the very first part of the path.
+                        zipFolderName = parts[0]; 
+                        console.log(`Zip folder name set from click: ${zipFolderName}`);
+                    }
+                }
+            }
+            
+            updateFileListStatus();
+        });
+
+        function updateFileListStatus() {
+            const fileCount = selectedFiles.length;
+
+            // 1. Update Button State
+            if (fileCount > 0) {
+                fileListStatus.textContent = `${selectedFiles.length} file(s) selected.`;
+                compressBtn.disabled = false;
+                compressBtn.classList.add('active'); // Green
+            } else {
+                fileListStatus.textContent = 'No files selected.';
+                compressBtn.disabled = true;
+                compressBtn.classList.remove('active'); // Grey
+            }
+        }
+
+        // Initial call to set button state
+        updateFileListStatus();
+
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropArea.addEventListener(eventName, () => dropArea.classList.add('highlight'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, () => dropArea.classList.remove('highlight'), false);
+        });
+
+        dropArea.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            let dt = e.dataTransfer;
+            selectedFiles = [];
+            pendingTraversalOperations = 0;
+            zipFolderName = ''; // Reset folder name
+
+            if (dt.items) {
+                let firstEntry = [...dt.items][0].webkitGetAsEntry();
+                
+                // If the drop is a single directory, set the zipFolderName
+                if (firstEntry && firstEntry.isDirectory) {
+                    zipFolderName = firstEntry.name;
+                } else {
+                    // If multiple items or files, don't use a custom name
+                    zipFolderName = '';
+                }
+
+                // Start traversal for each dropped item
+                [...dt.items].forEach(item => {
+                    const entry = item.webkitGetAsEntry();
+                    if (entry) {
+                        pendingTraversalOperations++; 
+                        traverseFileTree(entry);
+                    }
+                });
+            } 
+            // ... (Fallback for older browsers remains the same, but file list should be filtered) ...
+        }
+
+        function onTraversalComplete() {
+            pendingTraversalOperations--;
+            if (pendingTraversalOperations <= 0) {
+                // Only update UI once all async file/folder reading is finished
+                updateFileListStatus();
+            }
+        }
+
+        // Recursive function to read files from directories
+        function traverseFileTree(item) {
+            if (item.isFile) {
+                item.file(file => {
+                    if (isValidImage(file)) {
+                         selectedFiles.push(file);
+                    }
+                    onTraversalComplete(); 
+                });
+            } else if (item.isDirectory) {
+                // ... (Directory reading logic remains the same) ...
+                const dirReader = item.createReader();
+                
+                const readEntries = () => {
+                     dirReader.readEntries(entries => {
+                        if (entries.length > 0) {
+                            pendingTraversalOperations += entries.length;
+                            entries.forEach(entry => {
+                                traverseFileTree(entry); 
+                            });
+                            readEntries(); 
+                        } else {
+                            onTraversalComplete();
+                        }
+                     });
+                };
+                readEntries();
+            }
+        }
+
+        // --- Form Submission and Polling Logic ---
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (selectedFiles.length === 0) return;
+
+            const formData = new FormData();
+            selectedFiles.forEach(file => formData.append('images', file));
+            formData.append('maxWidth', form.maxWidth.value);
+            formData.append('maxHeight', form.maxHeight.value);
+            formData.append('quality', form.quality.value);
+            //  Append the custom zip folder name to the FormData
+            formData.append('zipFolderName', zipFolderName)
+
+            // UI updates for start
+            progressSection.style.display = 'block';
+            progressText.textContent = 'Status: Uploading and starting compression...';
+            progressBar.style.width = '0%';
+            progressBar.textContent = '0%';
+            compressBtn.disabled = true;
+            downloadLink.style.display = 'none';
+
+            try {
+                // 1. Start Compression
+                const startResponse = await fetch('/compress', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!startResponse.ok) throw new Error('Failed to start compression.');
+
+                const { batchId } = await startResponse.json();
+                
+                // 2. Start Polling for Progress
+                const pollInterval = setInterval(async () => {
+                    const progressResponse = await fetch(`/progress/${batchId}`);
+                    if (!progressResponse.ok) {
+                        clearInterval(pollInterval);
+                        progressText.textContent = 'Status: Error fetching progress.';
+                        return;
+                    }
+
+                    const progressData = await progressResponse.json();
+                    
+                    const progressPercent = progressData.progress;
+                    progressBar.style.width = `${progressPercent}%`;
+                    progressBar.textContent = `${progressPercent}%`;
+                    progressText.textContent = `Status: ${progressData.status} (${progressData.completedFiles}/${progressData.totalFiles} files)`;
+
+                    if (progressData.status === 'Complete') {
+                        clearInterval(pollInterval);
+                        downloadLink.href = `/download/${batchId}`;
+                        downloadLink.textContent = 'Download Compressed Images (Click Here)';
+                        downloadLink.style.display = 'block';
+                        compressBtn.disabled = false;
+                        // Reset files for new batch
+                        selectedFiles = [];
+                        fileInput.value = null;
+                        updateFileListStatus();
+
+                    } else if (progressData.status === 'Error' || progressData.status === 'Failed') {
+                        clearInterval(pollInterval);
+                        progressText.textContent = `Status: Failed. Check server logs.`;
+                        compressBtn.disabled = false;
+                    }
+
+                }, 1000); // Poll every 1 second
+
+            } catch (error) {
+                progressText.textContent = `Status: Error - ${error.message}`;
+                compressBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
