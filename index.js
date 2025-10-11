@@ -230,7 +230,11 @@ app.get('/download/:batchId', (req, res) => {
             console.error('Download error:', err);
         }
 
-        delete compressionProgress[batchId];
+        // Keep progress data for a while before deleting
+        setTimeout(() => {
+            delete compressionProgress[batchId];
+        }, 5000); // Delete after 5 seconds
+        
         try {
             fs.unlinkSync(zipPath);
             console.log(`Deleted zip file after download: ${finalZipName}`);
