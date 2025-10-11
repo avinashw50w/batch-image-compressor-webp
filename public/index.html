@@ -51,6 +51,7 @@
         let pendingTraversalOperations = 0;
         let zipFolderName = '';
         const activeBatches = new Map();
+        const downloadedBatches = new Set();
 
         function isIgnoredFile(file) {
             return file.name.startsWith('.');
@@ -109,6 +110,11 @@
                 downloadLink.textContent = `📥 Download ${batchInfo.zipName}`;
                 downloadLink.style.display = 'block';
                 progressText.classList.add('complete');
+                
+                // Track when download link is clicked
+                downloadLink.addEventListener('click', () => {
+                    downloadedBatches.add(batchId);
+                });
                 
                 // Remove from active batches after completion
                 setTimeout(() => {
@@ -218,6 +224,20 @@
 
         let isSubmitting = false;
 
+        function removeDownloadedBatches() {
+            downloadedBatches.forEach(batchId => {
+                const batchElement = document.getElementById(`batch-${batchId}`);
+                if (batchElement) {
+                    batchElement.style.transition = 'opacity 0.3s ease';
+                    batchElement.style.opacity = '0';
+                    setTimeout(() => {
+                        batchElement.remove();
+                    }, 300);
+                }
+            });
+            downloadedBatches.clear();
+        }
+
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
 
@@ -226,6 +246,9 @@
             isSubmitting = true;
             compressBtn.disabled = true;
             compressBtn.textContent = 'Starting...';
+
+            // Remove all downloaded batches before starting new one
+            removeDownloadedBatches();
 
             const formData = new FormData();
             selectedFiles.forEach(file => formData.append('images', file));
