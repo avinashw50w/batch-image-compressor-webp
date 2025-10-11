@@ -34,13 +34,8 @@
             <button type="submit" id="compressBtn" disabled>Compress Images</button>
         </form>
 
-        <div class="progress-section" style="display: none;" id="progress-section">
-            <h2>Processing...</h2>
-            <div id="progress-bar-container">
-                <div id="progress-bar">0%</div>
-            </div>
-            <p id="progress-text">Status: Idle</p>
-            <a id="download-link" style="display: none;"></a>
+        <div id="batches-container">
+            <!-- Batch progress items will be added here dynamically -->
         </div>
     </div>
 
@@ -50,14 +45,12 @@
         const form = document.getElementById('compressionForm');
         const compressBtn = document.getElementById('compressBtn');
         const fileListStatus = document.getElementById('file-list-status');
-        const progressSection = document.getElementById('progress-section');
-        const progressBar = document.getElementById('progress-bar');
-        const progressText = document.getElementById('progress-text');
-        const downloadLink = document.getElementById('download-link');
+        const batchesContainer = document.getElementById('batches-container');
         
         let selectedFiles = [];
         let pendingTraversalOperations = 0;
         let zipFolderName = '';
+        const activeBatches = new Map();
 
         function isIgnoredFile(file) {
             return file.name.startsWith('.');
@@ -74,6 +67,57 @@
                 fileListStatus.textContent = 'No files selected.';
                 compressBtn.disabled = true;
                 compressBtn.classList.remove('active');
+            }
+        }
+
+        function createBatchElement(batchId, zipName, fileCount) {
+            const batchDiv = document.createElement('div');
+            batchDiv.className = 'batch-item';
+            batchDiv.id = `batch-${batchId}`;
+            
+            batchDiv.innerHTML = `
+                <div class="batch-header">
+                    <h3>${zipName || `Batch ${batchId}`}</h3>
+                    <span class="file-count">${fileCount} files</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="progress-bar-${batchId}">0%</div>
+                </div>
+                <p class="progress-text" id="progress-text-${batchId}">Status: Uploading...</p>
+                <a class="download-link" id="download-link-${batchId}" style="display: none;"></a>
+            `;
+            
+            batchesContainer.insertBefore(batchDiv, batchesContainer.firstChild);
+            return batchDiv;
+        }
+
+        function updateBatchProgress(batchId, progressData) {
+            const progressBar = document.getElementById(`progress-bar-${batchId}`);
+            const progressText = document.getElementById(`progress-text-${batchId}`);
+            const downloadLink = document.getElementById(`download-link-${batchId}`);
+            
+            if (!progressBar || !progressText) return;
+            
+            const progressPercent = progressData.progress;
+            progressBar.style.width = `${progressPercent}%`;
+            progressBar.textContent = `${progressPercent}%`;
+            progressText.textContent = `Status: ${progressData.status} (${progressData.completedFiles}/${progressData.totalFiles} files)`;
+
+            if (progressData.status === 'Complete') {
+                const batchInfo = activeBatches.get(batchId);
+                downloadLink.href = `/download/${batchId}`;
+                downloadLink.textContent = `📥 Download ${batchInfo.zipName}`;
+                downloadLink.style.display = 'block';
+                progressText.classList.add('complete');
+                
+                // Remove from active batches after completion
+                setTimeout(() => {
+                    activeBatches.delete(batchId);
+                }, 1000);
+            } else if (progressData.status === 'Error' || progressData.status === 'Failed') {
+                progressText.textContent = 'Status: Failed. Check server logs.';
+                progressText.classList.add('error');
+                activeBatches.delete(batchId);
             }
         }
 
@@ -172,10 +216,16 @@
             }
         }
 
+        let isSubmitting = false;
+
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            if (selectedFiles.length === 0) return;
+            if (selectedFiles.length === 0 || isSubmitting) return;
+
+            isSubmitting = true;
+            compressBtn.disabled = true;
+            compressBtn.textContent = 'Starting...';
 
             const formData = new FormData();
             selectedFiles.forEach(file => formData.append('images', file));
@@ -184,12 +234,8 @@
             formData.append('quality', form.quality.value);
             formData.append('zipFolderName', zipFolderName);
 
-            progressSection.style.display = 'block';
-            progressText.textContent = 'Status: Uploading and starting compression...';
-            progressBar.style.width = '0%';
-            progressBar.textContent = '0%';
-            compressBtn.disabled = true;
-            downloadLink.style.display = 'none';
+            const fileCount = selectedFiles.length;
+            const displayZipName = zipFolderName || 'compressed_images';
 
             try {
                 const startResponse = await fetch('/compress', {
@@ -201,39 +247,54 @@
 
                 const { batchId } = await startResponse.json();
                 
+                // Create batch UI element
+                createBatchElement(batchId, displayZipName, fileCount);
+                activeBatches.set(batchId, { zipName: `${displayZipName}.zip`, fileCount });
+                
+                // Reset form
+                selectedFiles = [];
+                fileInput.value = null;
+                zipFolderName = '';
+                updateFileListStatus();
+                
+                // Re-enable button after successful submission
+                isSubmitting = false;
+                compressBtn.textContent = 'Compress Images';
+                
+                // Poll for progress
                 const pollInterval = setInterval(async () => {
-                    const progressResponse = await fetch(`/progress/${batchId}`);
-                    if (!progressResponse.ok) {
-                        clearInterval(pollInterval);
-                        progressText.textContent = 'Status: Error fetching progress.';
-                        return;
-                    }
+                    try {
+                        const progressResponse = await fetch(`/progress/${batchId}`);
+                        if (!progressResponse.ok) {
+                            clearInterval(pollInterval);
+                            const progressText = document.getElementById(`progress-text-${batchId}`);
+                            if (progressText) {
+                                progressText.textContent = 'Status: Error fetching progress.';
+                                progressText.classList.add('error');
+                            }
+                            activeBatches.delete(batchId);
+                            return;
+                        }
 
-                    const progressData = await progressResponse.json();
-                    
-                    const progressPercent = progressData.progress;
-                    progressBar.style.width = `${progressPercent}%`;
-                    progressBar.textContent = `${progressPercent}%`;
-                    progressText.textContent = `Status: ${progressData.status} (${progressData.completedFiles}/${progressData.totalFiles} files)`;
+                        const progressData = await progressResponse.json();
+                        updateBatchProgress(batchId, progressData);
 
-                    if (progressData.status === 'Complete') {
+                        if (progressData.status === 'Complete' || 
+                            progressData.status === 'Error' || 
+                            progressData.status === 'Failed') {
+                            clearInterval(pollInterval);
+                        }
+                    } catch (error) {
                         clearInterval(pollInterval);
-                        downloadLink.href = `/download/${batchId}`;
-                        downloadLink.textContent = 'Download Compressed Images (Click Here)';
-                        downloadLink.style.display = 'block';
-                        compressBtn.disabled = false;
-                        selectedFiles = [];
-                        fileInput.value = null;
-                        updateFileListStatus();
-                    } else if (progressData.status === 'Error' || progressData.status === 'Failed') {
-                        clearInterval(pollInterval);
-                        progressText.textContent = 'Status: Failed. Check server logs.';
-                        compressBtn.disabled = false;
+                        console.error('Progress polling error:', error);
+                        activeBatches.delete(batchId);
                     }
                 }, 1000);
             } catch (error) {
-                progressText.textContent = `Status: Error - ${error.message}`;
-                compressBtn.disabled = false;
+                alert(`Error: ${error.message}`);
+                isSubmitting = false;
+                compressBtn.textContent = 'Compress Images';
+                updateFileListStatus();
             }
         });
 
