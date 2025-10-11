@@ -52,6 +52,15 @@
         let zipFolderName = '';
         const activeBatches = new Map();
         const downloadedBatches = new Set();
+        const pendingBatches = new Set(); // Track batches that haven't been downloaded
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', (e) => {
+            // Send cleanup requests for all pending batches
+            pendingBatches.forEach(batchId => {
+                navigator.sendBeacon(`/cleanup/${batchId}`);
+            });
+        });
 
         function isIgnoredFile(file) {
             return file.name.startsWith('.');
@@ -114,6 +123,7 @@
                 // Track when download link is clicked
                 downloadLink.addEventListener('click', () => {
                     downloadedBatches.add(batchId);
+                    pendingBatches.delete(batchId); // Remove from pending since it's downloaded
                 });
                 
                 // Remove from active batches after completion
@@ -273,6 +283,7 @@
                 // Create batch UI element
                 createBatchElement(batchId, displayZipName, fileCount);
                 activeBatches.set(batchId, { zipName: `${displayZipName}.zip`, fileCount });
+                pendingBatches.add(batchId); // Track as pending until downloaded
                 
                 // Reset form
                 selectedFiles = [];
@@ -306,11 +317,17 @@
                             progressData.status === 'Error' || 
                             progressData.status === 'Failed') {
                             clearInterval(pollInterval);
+                            
+                            // Cleanup if error/failed
+                            if (progressData.status === 'Error' || progressData.status === 'Failed') {
+                                pendingBatches.delete(batchId);
+                            }
                         }
                     } catch (error) {
                         clearInterval(pollInterval);
                         console.error('Progress polling error:', error);
                         activeBatches.delete(batchId);
+                        pendingBatches.delete(batchId);
                     }
                 }, 1000);
             } catch (error) {
