@@ -103,7 +103,8 @@ app.post('/compress', upload.array('images'), async (req, res) => {
         return res.status(400).send('No files uploaded.');
     }
 
-    const batchId = Date.now().toString();
+    // Generate unique batch ID with timestamp and random component
+    const batchId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     compressionProgress[batchId] = {
         total: files.length,
         completed: 0,

@@ -13,7 +13,7 @@
 
         <form id="compressionForm">
             <div id="drop-area">Click or Drop Files/Folder Here</div>
-            <input type="file" id="fileInput" name="images" multiple style="display: none;" webkitdirectory directory>
+            <input type="file" id="fileInput" name="images" multiple style="display: none;">
             
             <div class="settings-grid">
                 <div class="setting-group">
@@ -48,9 +48,10 @@
         const batchesContainer = document.getElementById('batches-container');
         
         let selectedFiles = [];
+        let selectedFolders = new Map(); // Map of folderName -> array of files
         let pendingTraversalOperations = 0;
         let zipFolderName = '';
-        const activeBatches = new Map();
+        let isMultipleFolders = false;        const activeBatches = new Map();
         const downloadedBatches = new Set();
         const pendingBatches = new Set(); // Track batches that haven't been downloaded
 
@@ -67,16 +68,34 @@
         }
 
         function updateFileListStatus() {
-            const fileCount = selectedFiles.length;
-
-            if (fileCount > 0) {
-                fileListStatus.textContent = `${fileCount} file(s) selected.`;
-                compressBtn.disabled = false;
-                compressBtn.classList.add('active');
+            let totalFileCount = 0;
+            
+            if (isMultipleFolders) {
+                selectedFolders.forEach(files => {
+                    totalFileCount += files.length;
+                });
+                
+                if (selectedFolders.size > 0) {
+                    fileListStatus.textContent = `${selectedFolders.size} folder(s) selected with ${totalFileCount} file(s).`;
+                    compressBtn.disabled = false;
+                    compressBtn.classList.add('active');
+                } else {
+                    fileListStatus.textContent = 'No folders selected.';
+                    compressBtn.disabled = true;
+                    compressBtn.classList.remove('active');
+                }
             } else {
-                fileListStatus.textContent = 'No files selected.';
-                compressBtn.disabled = true;
-                compressBtn.classList.remove('active');
+                const fileCount = selectedFiles.length;
+
+                if (fileCount > 0) {
+                    fileListStatus.textContent = `${fileCount} file(s) selected.`;
+                    compressBtn.disabled = false;
+                    compressBtn.classList.add('active');
+                } else {
+                    fileListStatus.textContent = 'No files selected.';
+                    compressBtn.disabled = true;
+                    compressBtn.classList.remove('active');
+                }
             }
         }
 
@@ -137,10 +156,17 @@
             }
         }
 
-        dropArea.addEventListener('click', () => fileInput.click());
+        dropArea.addEventListener('click', () => {
+            fileInput.removeAttribute('webkitdirectory');
+            fileInput.removeAttribute('directory');
+            fileInput.click();
+        });
 
         fileInput.addEventListener('change', (e) => {
             selectedFiles = [];
+            selectedFolders.clear();
+            isMultipleFolders = false;
+            
             const allSelectedFiles = Array.from(e.target.files);
             selectedFiles = allSelectedFiles.filter(file => !isIgnoredFile(file));
             zipFolderName = '';
@@ -164,6 +190,12 @@
                 e.preventDefault();
                 e.stopPropagation();
             });
+            
+            // Also prevent default on document level to avoid browser opening files
+            document.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            }, false);
         });
 
         ['dragenter', 'dragover'].forEach(eventName => {
@@ -179,23 +211,42 @@
         function handleDrop(e) {
             const dt = e.dataTransfer;
             selectedFiles = [];
+            selectedFolders.clear();
             pendingTraversalOperations = 0;
             zipFolderName = '';
+            isMultipleFolders = false;
 
             if (dt.items) {
-                const firstEntry = [...dt.items][0].webkitGetAsEntry();
+                const items = [...dt.items];
+                const entries = items.map(item => item.webkitGetAsEntry()).filter(entry => entry);
                 
-                if (firstEntry && firstEntry.isDirectory) {
+                // Check if multiple folders are dropped
+                const folderEntries = entries.filter(entry => entry.isDirectory);
+                
+                if (folderEntries.length > 1) {
+                    // Multiple folders dropped
+                    isMultipleFolders = true;
+                    folderEntries.forEach(entry => {
+                        selectedFolders.set(entry.name, []);
+                        pendingTraversalOperations++;
+                        traverseFileTreeForFolder(entry, entry.name);
+                    });
+                } else if (folderEntries.length === 1) {
+                    // Single folder dropped
+                    const firstEntry = folderEntries[0];
                     zipFolderName = firstEntry.name;
-                }
-
-                [...dt.items].forEach(item => {
-                    const entry = item.webkitGetAsEntry();
-                    if (entry) {
+                    
+                    entries.forEach(entry => {
                         pendingTraversalOperations++;
                         traverseFileTree(entry);
-                    }
-                });
+                    });
+                } else {
+                    // Only files dropped
+                    entries.forEach(entry => {
+                        pendingTraversalOperations++;
+                        traverseFileTree(entry);
+                    });
+                }
             }
         }
 
@@ -232,6 +283,34 @@
             }
         }
 
+        function traverseFileTreeForFolder(item, folderName) {
+            if (item.isFile) {
+                item.file(file => {
+                    if (!isIgnoredFile(file)) {
+                        const folderFiles = selectedFolders.get(folderName) || [];
+                        folderFiles.push(file);
+                        selectedFolders.set(folderName, folderFiles);
+                    }
+                    onTraversalComplete();
+                });
+            } else if (item.isDirectory) {
+                const dirReader = item.createReader();
+                
+                const readEntries = () => {
+                    dirReader.readEntries(entries => {
+                        if (entries.length > 0) {
+                            pendingTraversalOperations += entries.length;
+                            entries.forEach(entry => traverseFileTreeForFolder(entry, folderName));
+                            readEntries();
+                        } else {
+                            onTraversalComplete();
+                        }
+                    });
+                };
+                readEntries();
+            }
+        }
+
         let isSubmitting = false;
 
         function removeDownloadedBatches() {
@@ -251,7 +330,7 @@
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            if (selectedFiles.length === 0 || isSubmitting) return;
+            if ((selectedFiles.length === 0 && selectedFolders.size === 0) || isSubmitting) return;
 
             isSubmitting = true;
             compressBtn.disabled = true;
@@ -260,41 +339,73 @@
             // Remove all downloaded batches before starting new one
             removeDownloadedBatches();
 
-            const formData = new FormData();
-            selectedFiles.forEach(file => formData.append('images', file));
-            formData.append('maxWidth', form.maxWidth.value);
-            formData.append('maxHeight', form.maxHeight.value);
-            formData.append('quality', form.quality.value);
-            formData.append('zipFolderName', zipFolderName);
-
-            const fileCount = selectedFiles.length;
-            const displayZipName = zipFolderName || 'compressed_images';
-
             try {
-                const startResponse = await fetch('/compress', {
-                    method: 'POST',
-                    body: formData
-                });
+                if (isMultipleFolders) {
+                    // Process each folder as a separate batch
+                    for (const [folderName, files] of selectedFolders.entries()) {
+                        if (files.length === 0) continue;
 
-                if (!startResponse.ok) throw new Error('Failed to start compression.');
+                        const formData = new FormData();
+                        files.forEach(file => formData.append('images', file));
+                        formData.append('maxWidth', form.maxWidth.value);
+                        formData.append('maxHeight', form.maxHeight.value);
+                        formData.append('quality', form.quality.value);
+                        formData.append('zipFolderName', folderName);
 
-                const { batchId } = await startResponse.json();
-                
-                // Create batch UI element
-                createBatchElement(batchId, displayZipName, fileCount);
-                activeBatches.set(batchId, { zipName: `${displayZipName}.zip`, fileCount });
-                pendingBatches.add(batchId); // Track as pending until downloaded
-                
-                // Reset form
-                selectedFiles = [];
+                        await submitBatch(formData, folderName, files.length);
+                    }
+
+                    // Reset form after all batches submitted
+                    selectedFolders.clear();
+                    isMultipleFolders = false;
+                } else {
+                    // Single batch (files or single folder)
+                    const formData = new FormData();
+                    selectedFiles.forEach(file => formData.append('images', file));
+                    formData.append('maxWidth', form.maxWidth.value);
+                    formData.append('maxHeight', form.maxHeight.value);
+                    formData.append('quality', form.quality.value);
+                    formData.append('zipFolderName', zipFolderName);
+
+                    const fileCount = selectedFiles.length;
+                    const displayZipName = zipFolderName || 'compressed_images';
+
+                    await submitBatch(formData, displayZipName, fileCount);
+
+                    // Reset form
+                    selectedFiles = [];
+                    zipFolderName = '';
+                }
+
                 fileInput.value = null;
-                zipFolderName = '';
                 updateFileListStatus();
                 
                 // Re-enable button after successful submission
                 isSubmitting = false;
                 compressBtn.textContent = 'Compress Images';
-                
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+                isSubmitting = false;
+                compressBtn.textContent = 'Compress Images';
+                updateFileListStatus();
+            }
+        });
+
+        async function submitBatch(formData, displayZipName, fileCount) {
+            const startResponse = await fetch('/compress', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!startResponse.ok) throw new Error('Failed to start compression.');
+
+            const { batchId } = await startResponse.json();
+            
+            // Create batch UI element
+            createBatchElement(batchId, displayZipName, fileCount);
+            activeBatches.set(batchId, { zipName: `${displayZipName}.zip`, fileCount });
+            pendingBatches.add(batchId); // Track as pending until downloaded
+            try {   
                 // Poll for progress
                 const pollInterval = setInterval(async () => {
                     try {
@@ -336,7 +447,7 @@
                 compressBtn.textContent = 'Compress Images';
                 updateFileListStatus();
             }
-        });
+        };
 
         updateFileListStatus();
     </script>
