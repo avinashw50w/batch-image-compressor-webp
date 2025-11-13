@@ -56,7 +56,7 @@ p {
 
 #drop-area.highlight,
 #drop-area:hover {
-    background-color: #e6f3ff;
+    background-color: #1a2e4a;
     border-color: #0056b3;
 }
 
@@ -85,7 +85,8 @@ p {
     border-radius: 6px;
     box-sizing: border-box;
     text-align: center;
-    color: #333;
+    color: #ccc;
+    background-color: #04182c;
 }
 
 .setting-group input:focus {
