@@ -1,53 +1,53 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Batch Image Compressor</title>
-    <link rel="stylesheet" href="styles.css">
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Batch Image Compressor</title>
+	<link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="container">
-        <h1><span class="rocket">🚀</span> Batch Image Compressor</h1>
-        <p>Drop files or a folder, adjust settings, and get a compressed zip file.</p>
+	<div class="container">
+		<h1><span class="rocket">🚀</span> Batch Image Compressor</h1>
+		<p>Drop files or a folder, adjust settings, and get a compressed zip file.</p>
 
-        <form id="compressionForm">
-            <div id="drop-area">Click or Drop Files/Folder Here</div>
-            <input type="file" id="fileInput" name="images" multiple style="display: none;">
-            
-            <div class="settings-grid">
-                <div class="setting-group">
-                    <label>Max Width (px)</label>
-                    <input type="number" name="maxWidth" value="1280" placeholder="Default: 1280">
-                </div>
-                <div class="setting-group">
-                    <label>Max Height (px)</label>
-                    <input type="number" name="maxHeight" value="1280" placeholder="Default: 1280">
-                </div>
-                <div class="setting-group">
-                    <label>Quality (1-100)</label>
-                    <input type="number" name="quality" value="80" placeholder="Default: 80">
-                </div>
-            </div>
+		<form id="compressionForm">
+			<div id="drop-area">Click or Drop Files/Folder Here</div>
+			<input type="file" id="fileInput" name="images" multiple style="display: none;">
+			
+			<div class="settings-grid">
+				<div class="setting-group">
+					<label>Max Width (px)</label>
+					<input type="number" name="maxWidth" value="1280" placeholder="Default: 1280">
+				</div>
+				<div class="setting-group">
+					<label>Max Height (px)</label>
+					<input type="number" name="maxHeight" value="1280" placeholder="Default: 1280">
+				</div>
+				<div class="setting-group">
+					<label>Quality (1-100)</label>
+					<input type="number" name="quality" value="80" placeholder="Default: 80">
+				</div>
+			</div>
 
-            <p id="file-list-status">No files selected.</p>
-            <button type="submit" id="compressBtn" disabled>Compress Images</button>
-        </form>
+			<p id="file-list-status">No files selected.</p>
+			<button type="submit" id="compressBtn" disabled>Compress Images</button>
+		</form>
 
-        <div id="batches-container">
-            <!-- Batch progress items will be added here dynamically -->
-        </div>
-    </div>
+		<div id="batches-container">
+			<!-- Batch progress items will be added here dynamically -->
+		</div>
+	</div>
 
-    <script>
-        const dropArea = document.getElementById('drop-area');
-        const fileInput = document.getElementById('fileInput');
-        const form = document.getElementById('compressionForm');
-        const compressBtn = document.getElementById('compressBtn');
-        const fileListStatus = document.getElementById('file-list-status');
-        const batchesContainer = document.getElementById('batches-container');
-        
-        let selectedFiles = [];
+	<script>
+		const dropArea = document.getElementById('drop-area');
+		const fileInput = document.getElementById('fileInput');
+		const form = document.getElementById('compressionForm');
+		const compressBtn = document.getElementById('compressBtn');
+		const fileListStatus = document.getElementById('file-list-status');
+		const batchesContainer = document.getElementById('batches-container');
+		
+		let selectedFiles = [];
         let selectedFolders = new Map(); // Map of folderName -> array of files
         let pendingTraversalOperations = 0;
         let zipFolderName = '';
@@ -58,55 +58,55 @@
         // Cleanup on page unload
         window.addEventListener('beforeunload', (e) => {
             // Send cleanup requests for all pending batches
-            pendingBatches.forEach(batchId => {
-                navigator.sendBeacon(`/cleanup/${batchId}`);
-            });
+        	pendingBatches.forEach(batchId => {
+        		navigator.sendBeacon(`/cleanup/${batchId}`);
+        	});
         });
 
         function isIgnoredFile(file) {
-            return file.name.startsWith('.');
+        	return file.name.startsWith('.');
         }
 
         function updateFileListStatus() {
-            let totalFileCount = 0;
-            
-            if (isMultipleFolders) {
-                selectedFolders.forEach(files => {
-                    totalFileCount += files.length;
-                });
-                
-                if (selectedFolders.size > 0) {
-                    fileListStatus.textContent = `${selectedFolders.size} folder(s) selected with ${totalFileCount} file(s).`;
-                    compressBtn.disabled = false;
-                    compressBtn.classList.add('active');
-                } else {
-                    fileListStatus.textContent = 'No folders selected.';
-                    compressBtn.disabled = true;
-                    compressBtn.classList.remove('active');
-                }
-            } else {
-                const fileCount = selectedFiles.length;
+        	let totalFileCount = 0;
+        	
+        	if (isMultipleFolders) {
+        		selectedFolders.forEach(files => {
+        			totalFileCount += files.length;
+        		});
+        		
+        		if (selectedFolders.size > 0) {
+        			fileListStatus.textContent = `${selectedFolders.size} folder(s) selected with ${totalFileCount} file(s).`;
+        			compressBtn.disabled = false;
+        			compressBtn.classList.add('active');
+        		} else {
+        			fileListStatus.textContent = 'No folders selected.';
+        			compressBtn.disabled = true;
+        			compressBtn.classList.remove('active');
+        		}
+        	} else {
+        		const fileCount = selectedFiles.length;
 
-                if (fileCount > 0) {
-                    fileListStatus.textContent = `${fileCount} file(s) selected.`;
-                    compressBtn.disabled = false;
-                    compressBtn.classList.add('active');
-                } else {
-                    fileListStatus.textContent = 'No files selected.';
-                    compressBtn.disabled = true;
-                    compressBtn.classList.remove('active');
-                }
-            }
+        		if (fileCount > 0) {
+        			fileListStatus.textContent = `${fileCount} file(s) selected.`;
+        			compressBtn.disabled = false;
+        			compressBtn.classList.add('active');
+        		} else {
+        			fileListStatus.textContent = 'No files selected.';
+        			compressBtn.disabled = true;
+        			compressBtn.classList.remove('active');
+        		}
+        	}
         }
 
         function createBatchElement(batchId, zipName, fileCount) {
-            const batchDiv = document.createElement('div');
-            batchDiv.className = 'batch-item';
-            batchDiv.id = `batch-${batchId}`;
-            
-            batchDiv.innerHTML = `
+        	const batchDiv = document.createElement('div');
+        	batchDiv.className = 'batch-item';
+        	batchDiv.id = `batch-${batchId}`;
+        	
+        	batchDiv.innerHTML = `
                 <div class="batch-header">
-                    <h3>${zipName || `Batch ${batchId}`}</h3>
+        		<h3>${zipName || `Batch ${batchId}`}</h3>
                     <span class="file-count">${fileCount} files</span>
                 </div>
                 <div class="progress-bar-container">
@@ -114,348 +114,343 @@
                 </div>
                 <p class="progress-text" id="progress-text-${batchId}">Status: Uploading...</p>
                 <a class="download-link" id="download-link-${batchId}" style="display: none;"></a>
-            `;
-            
-            batchesContainer.insertBefore(batchDiv, batchesContainer.firstChild);
-            return batchDiv;
+        	`;
+        	
+        	batchesContainer.insertBefore(batchDiv, batchesContainer.firstChild);
+        	return batchDiv;
         }
 
         function updateBatchProgress(batchId, progressData) {
-            const progressBar = document.getElementById(`progress-bar-${batchId}`);
-            const progressText = document.getElementById(`progress-text-${batchId}`);
-            const downloadLink = document.getElementById(`download-link-${batchId}`);
-            
-            if (!progressBar || !progressText) return;
-            
-            const progressPercent = progressData.progress;
-            progressBar.style.width = `${progressPercent}%`;
-            progressBar.textContent = `${progressPercent}%`;
-            progressText.textContent = `Status: ${progressData.status} (${progressData.completedFiles}/${progressData.totalFiles} files)`;
+        	const progressBar = document.getElementById(`progress-bar-${batchId}`);
+        	const progressText = document.getElementById(`progress-text-${batchId}`);
+        	const downloadLink = document.getElementById(`download-link-${batchId}`);
+        	
+        	if (!progressBar || !progressText) return;
+        	
+        	const progressPercent = progressData.progress;
+        	progressBar.style.width = `${progressPercent}%`;
+        	progressBar.textContent = `${progressPercent}%`;
+        	progressText.textContent = `Status: ${progressData.status} (${progressData.completedFiles}/${progressData.totalFiles} files)`;
 
-            if (progressData.status === 'Complete') {
-                const batchInfo = activeBatches.get(batchId);
-                downloadLink.href = `/download/${batchId}`;
-                downloadLink.textContent = `📥 Download ${batchInfo.zipName}`;
-                downloadLink.style.display = 'block';
-                downloadLink.download = batchInfo.zipName; 
-                progressText.classList.add('complete');
-                
+        	if (progressData.status === 'Complete') {
+        		const batchInfo = activeBatches.get(batchId);
+        		downloadLink.href = `/download/${batchId}`;
+        		downloadLink.textContent = `📥 Download ${batchInfo.zipName}`;
+        		downloadLink.style.display = 'block';
+        		downloadLink.download = batchInfo.zipName; 
+        		progressText.classList.add('complete');
+        		
                 // Track when download link is clicked
-                downloadLink.addEventListener('click', () => {
-                    downloadedBatches.add(batchId);
+        		downloadLink.addEventListener('click', () => {
+        			downloadedBatches.add(batchId);
                     pendingBatches.delete(batchId); // Remove from pending since it's downloaded
                 });
-                
+        		
                 // Remove from active batches after completion
-                setTimeout(() => {
-                    activeBatches.delete(batchId);
-                }, 1000);
-            } else if (progressData.status === 'Error' || progressData.status === 'Failed') {
-                progressText.textContent = 'Status: Failed. Check server logs.';
-                progressText.classList.add('error');
-                activeBatches.delete(batchId);
-            }
+        		setTimeout(() => {
+        			activeBatches.delete(batchId);
+        		}, 1000);
+        	} else if (progressData.status === 'Error' || progressData.status === 'Failed') {
+        		progressText.textContent = 'Status: Failed. Check server logs.';
+        		progressText.classList.add('error');
+        		activeBatches.delete(batchId);
+        	}
         }
 
         dropArea.addEventListener('click', () => {
-            fileInput.removeAttribute('webkitdirectory');
-            fileInput.removeAttribute('directory');
-            fileInput.click();
+        	fileInput.removeAttribute('webkitdirectory');
+        	fileInput.removeAttribute('directory');
+        	fileInput.click();
         });
 
         fileInput.addEventListener('change', (e) => {
-            selectedFiles = [];
-            selectedFolders.clear();
-            isMultipleFolders = false;
-            
-            const allSelectedFiles = Array.from(e.target.files);
-            selectedFiles = allSelectedFiles.filter(file => !isIgnoredFile(file));
-            zipFolderName = '';
+        	selectedFiles = [];
+        	selectedFolders.clear();
+        	isMultipleFolders = false;
+        	
+        	const allSelectedFiles = Array.from(e.target.files);
+        	selectedFiles = allSelectedFiles.filter(file => !isIgnoredFile(file));
+        	zipFolderName = '';
 
-            if (selectedFiles.length > 0) {
-                const firstFile = allSelectedFiles[0];
-                
-                if (firstFile.webkitRelativePath) {
-                    const parts = firstFile.webkitRelativePath.split('/');
-                    if (parts.length > 0) {
-                        zipFolderName = parts[0];
-                    }
-                }
-            }
+        	if (selectedFiles.length > 0) {
+        		const firstFile = allSelectedFiles[0];
+        		
+        		if (firstFile.webkitRelativePath) {
+        			const parts = firstFile.webkitRelativePath.split('/');
+        			if (parts.length > 0) {
+        				zipFolderName = parts[0];
+        			}
+        		}
+        	}
 
-            updateFileListStatus();
+        	updateFileListStatus();
         });
 
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            dropArea.addEventListener(eventName, (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-            });
-            
+        	dropArea.addEventListener(eventName, (e) => {
+        		e.preventDefault();
+        		e.stopPropagation();
+        	});
+        	
             // Also prevent default on document level to avoid browser opening files
-            document.addEventListener(eventName, (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-            }, false);
+        	document.addEventListener(eventName, (e) => {
+        		e.preventDefault();
+        		e.stopPropagation();
+        	}, false);
         });
 
         ['dragenter', 'dragover'].forEach(eventName => {
-            dropArea.addEventListener(eventName, () => dropArea.classList.add('highlight'));
+        	dropArea.addEventListener(eventName, () => dropArea.classList.add('highlight'));
         });
 
         ['dragleave', 'drop'].forEach(eventName => {
-            dropArea.addEventListener(eventName, () => dropArea.classList.remove('highlight'));
+        	dropArea.addEventListener(eventName, () => dropArea.classList.remove('highlight'));
         });
 
         dropArea.addEventListener('drop', handleDrop);
 
         function handleDrop(e) {
-            const dt = e.dataTransfer;
-            selectedFiles = [];
-            selectedFolders.clear();
-            pendingTraversalOperations = 0;
-            zipFolderName = '';
-            isMultipleFolders = false;
+        	const dt = e.dataTransfer;
+        	selectedFiles = [];
+        	selectedFolders.clear();
+        	pendingTraversalOperations = 0;
+        	zipFolderName = '';
+        	isMultipleFolders = false;
 
-            if (dt.items) {
-                const items = [...dt.items];
-                const entries = items.map(item => item.webkitGetAsEntry()).filter(entry => entry);
-                
+        	if (dt.items) {
+        		const items = [...dt.items];
+        		const entries = items.map(item => item.webkitGetAsEntry()).filter(entry => entry);
+        		
                 // Check if multiple folders are dropped
-                const folderEntries = entries.filter(entry => entry.isDirectory);
-                
-                if (folderEntries.length > 1) {
+        		const folderEntries = entries.filter(entry => entry.isDirectory);
+        		
+        		if (folderEntries.length > 1) {
                     // Multiple folders dropped
-                    isMultipleFolders = true;
-                    folderEntries.forEach(entry => {
-                        selectedFolders.set(entry.name, []);
-                        pendingTraversalOperations++;
-                        traverseFileTreeForFolder(entry, entry.name);
-                    });
-                } else if (folderEntries.length === 1) {
+        			isMultipleFolders = true;
+        			folderEntries.forEach(entry => {
+        				selectedFolders.set(entry.name, []);
+        				pendingTraversalOperations++;
+        				traverseFileTreeForFolder(entry, entry.name);
+        			});
+        		} else if (folderEntries.length === 1) {
                     // Single folder dropped
-                    const firstEntry = folderEntries[0];
-                    zipFolderName = firstEntry.name;
-                    
-                    entries.forEach(entry => {
-                        pendingTraversalOperations++;
-                        traverseFileTree(entry);
-                    });
-                } else {
+        			const firstEntry = folderEntries[0];
+        			zipFolderName = firstEntry.name;
+        			
+        			entries.forEach(entry => {
+        				pendingTraversalOperations++;
+        				traverseFileTree(entry);
+        			});
+        		} else {
                     // Only files dropped
-                    entries.forEach(entry => {
-                        pendingTraversalOperations++;
-                        traverseFileTree(entry);
-                    });
-                }
-            }
+        			entries.forEach(entry => {
+        				pendingTraversalOperations++;
+        				traverseFileTree(entry);
+        			});
+        		}
+        	}
         }
 
         function onTraversalComplete() {
-            pendingTraversalOperations--;
-            if (pendingTraversalOperations <= 0) {
-                updateFileListStatus();
-            }
+        	pendingTraversalOperations--;
+        	if (pendingTraversalOperations <= 0) {
+        		updateFileListStatus();
+        	}
         }
 
         function traverseFileTree(item) {
-            if (item.isFile) {
-                item.file(file => {
-                    if (!isIgnoredFile(file)) {
-                        selectedFiles.push(file);
-                    }
-                    onTraversalComplete();
-                });
-            } else if (item.isDirectory) {
-                const dirReader = item.createReader();
-                
-                const readEntries = () => {
-                    dirReader.readEntries(entries => {
-                        if (entries.length > 0) {
-                            pendingTraversalOperations += entries.length;
-                            entries.forEach(entry => traverseFileTree(entry));
-                            readEntries();
-                        } else {
-                            onTraversalComplete();
-                        }
-                    });
-                };
-                readEntries();
-            }
+        	if (item.isFile) {
+        		item.file(file => {
+        			if (!isIgnoredFile(file)) {
+        				selectedFiles.push(file);
+        			}
+        			onTraversalComplete();
+        		});
+        	} else if (item.isDirectory) {
+        		const dirReader = item.createReader();
+        		
+        		const readEntries = () => {
+        			dirReader.readEntries(entries => {
+        				if (entries.length > 0) {
+        					pendingTraversalOperations += entries.length;
+        					entries.forEach(entry => traverseFileTree(entry));
+        					readEntries();
+        				} else {
+        					onTraversalComplete();
+        				}
+        			});
+        		};
+        		readEntries();
+        	}
         }
 
         function traverseFileTreeForFolder(item, folderName) {
-            if (item.isFile) {
-                item.file(file => {
-                    if (!isIgnoredFile(file)) {
-                        const folderFiles = selectedFolders.get(folderName) || [];
-                        folderFiles.push(file);
-                        selectedFolders.set(folderName, folderFiles);
-                    }
-                    onTraversalComplete();
-                });
-            } else if (item.isDirectory) {
-                const dirReader = item.createReader();
-                
-                const readEntries = () => {
-                    dirReader.readEntries(entries => {
-                        if (entries.length > 0) {
-                            pendingTraversalOperations += entries.length;
-                            entries.forEach(entry => traverseFileTreeForFolder(entry, folderName));
-                            readEntries();
-                        } else {
-                            onTraversalComplete();
-                        }
-                    });
-                };
-                readEntries();
-            }
+        	if (item.isFile) {
+        		item.file(file => {
+        			if (!isIgnoredFile(file)) {
+        				const folderFiles = selectedFolders.get(folderName) || [];
+        				folderFiles.push(file);
+        				selectedFolders.set(folderName, folderFiles);
+        			}
+        			onTraversalComplete();
+        		});
+        	} else if (item.isDirectory) {
+        		const dirReader = item.createReader();
+        		
+        		const readEntries = () => {
+        			dirReader.readEntries(entries => {
+        				if (entries.length > 0) {
+        					pendingTraversalOperations += entries.length;
+        					entries.forEach(entry => traverseFileTreeForFolder(entry, folderName));
+        					readEntries();
+        				} else {
+        					onTraversalComplete();
+        				}
+        			});
+        		};
+        		readEntries();
+        	}
         }
 
         let isSubmitting = false;
 
         function removeDownloadedBatches() {
-            downloadedBatches.forEach(batchId => {
-                const batchElement = document.getElementById(`batch-${batchId}`);
-                if (batchElement) {
-                    batchElement.style.transition = 'opacity 0.3s ease';
-                    batchElement.style.opacity = '0';
-                    setTimeout(() => {
-                        batchElement.remove();
-                    }, 300);
-                }
-            });
-            downloadedBatches.clear();
+        	downloadedBatches.forEach(batchId => {
+        		const batchElement = document.getElementById(`batch-${batchId}`);
+        		if (batchElement) {
+        			batchElement.style.transition = 'opacity 0.3s ease';
+        			batchElement.style.opacity = '0';
+        			setTimeout(() => {
+        				batchElement.remove();
+        			}, 300);
+        		}
+        	});
+        	downloadedBatches.clear();
         }
 
         form.addEventListener('submit', async (e) => {
-            e.preventDefault();
+        	e.preventDefault();
 
-            if ((selectedFiles.length === 0 && selectedFolders.size === 0) || isSubmitting) return;
+        	if ((selectedFiles.length === 0 && selectedFolders.size === 0) || isSubmitting) return;
 
-            isSubmitting = true;
-            compressBtn.disabled = true;
-            compressBtn.textContent = 'Starting...';
+        	isSubmitting = true;
+        	compressBtn.disabled = true;
+        	compressBtn.textContent = 'Starting...';
 
             // Remove all downloaded batches before starting new one
-            removeDownloadedBatches();
+        	removeDownloadedBatches();
 
-            try {
-                if (isMultipleFolders) {
-                    // Process each folder as a separate batch
-                    let index = 0;
-                    for (const [folderName, files] of selectedFolders.entries()) {
-                        if (files.length === 0) continue;
+        	try {
+        		if (isMultipleFolders) {
+                    // Submit every folder's batch concurrently — no artificial stagger.
+                    // Each request gets its own collision-proof batchId from the server,
+                    // so there's no need to wait for one to finish before starting the next.
+        			const submissions = [...selectedFolders.entries()]
+        			.filter(([, files]) => files.length > 0)
+        			.map(([folderName, files]) => {
+        				const formData = new FormData();
+        				files.forEach(file => formData.append('images', file));
+        				formData.append('maxWidth', form.maxWidth.value);
+        				formData.append('maxHeight', form.maxHeight.value);
+        				formData.append('quality', form.quality.value);
+        				formData.append('zipFolderName', folderName);
 
-                        const formData = new FormData();
-                        files.forEach(file => formData.append('images', file));
-                        formData.append('maxWidth', form.maxWidth.value);
-                        formData.append('maxHeight', form.maxHeight.value);
-                        formData.append('quality', form.quality.value);
-                        formData.append('zipFolderName', folderName);
+        				return submitBatch(formData, folderName, files.length);
+        			});
 
-                        await submitBatch(formData, folderName, files.length);
-                        
-                        // Add small delay between batch submissions to ensure unique batch IDs
-                        if (index < selectedFolders.size - 1) {
-                            await new Promise(resolve => setTimeout(resolve, 100));
-                        }
-                        index++;
-                    }
+        			await Promise.all(submissions);
 
                     // Reset form after all batches submitted
-                    selectedFolders.clear();
-                    isMultipleFolders = false;
-                } else {
+        			selectedFolders.clear();
+        			isMultipleFolders = false;
+        		} else {
                     // Single batch (files or single folder)
-                    const formData = new FormData();
-                    selectedFiles.forEach(file => formData.append('images', file));
-                    formData.append('maxWidth', form.maxWidth.value);
-                    formData.append('maxHeight', form.maxHeight.value);
-                    formData.append('quality', form.quality.value);
-                    formData.append('zipFolderName', zipFolderName);
+        			const formData = new FormData();
+        			selectedFiles.forEach(file => formData.append('images', file));
+        			formData.append('maxWidth', form.maxWidth.value);
+        			formData.append('maxHeight', form.maxHeight.value);
+        			formData.append('quality', form.quality.value);
+        			formData.append('zipFolderName', zipFolderName);
 
-                    const fileCount = selectedFiles.length;
-                    const displayZipName = zipFolderName || 'compressed_images';
+        			const fileCount = selectedFiles.length;
+        			const displayZipName = zipFolderName || 'compressed_images';
 
-                    await submitBatch(formData, displayZipName, fileCount);
+        			await submitBatch(formData, displayZipName, fileCount);
 
                     // Reset form
-                    selectedFiles = [];
-                    zipFolderName = '';
-                }
+        			selectedFiles = [];
+        			zipFolderName = '';
+        		}
 
-                fileInput.value = null;
-                updateFileListStatus();
-                
+        		fileInput.value = null;
+        		updateFileListStatus();
+        		
                 // Re-enable button after successful submission
-                isSubmitting = false;
-                compressBtn.textContent = 'Compress Images';
-            } catch (error) {
-                alert(`Error: ${error.message}`);
-                isSubmitting = false;
-                compressBtn.textContent = 'Compress Images';
-                updateFileListStatus();
-            }
+        		isSubmitting = false;
+        		compressBtn.textContent = 'Compress Images';
+        	} catch (error) {
+        		alert(`Error: ${error.message}`);
+        		isSubmitting = false;
+        		compressBtn.textContent = 'Compress Images';
+        		updateFileListStatus();
+        	}
         });
 
         async function submitBatch(formData, displayZipName, fileCount) {
-            const startResponse = await fetch('/compress', {
-                method: 'POST',
-                body: formData
-            });
+        	const startResponse = await fetch('/compress', {
+        		method: 'POST',
+        		body: formData
+        	});
 
-            if (!startResponse.ok) throw new Error('Failed to start compression.');
+        	if (!startResponse.ok) throw new Error('Failed to start compression.');
 
-            const { batchId } = await startResponse.json();
-            
+        	const { batchId } = await startResponse.json();
+        	
             // Create batch UI element
-            createBatchElement(batchId, displayZipName, fileCount);
-            activeBatches.set(batchId, { zipName: `${displayZipName}.zip`, fileCount });
+        	createBatchElement(batchId, displayZipName, fileCount);
+        	activeBatches.set(batchId, { zipName: `${displayZipName}.zip`, fileCount });
             pendingBatches.add(batchId); // Track as pending until downloaded
-            
-            try {   
-                // Poll for progress
-                const pollInterval = setInterval(async () => {
-                    try {
-                        const progressResponse = await fetch(`/progress/${batchId}`);
-                        if (!progressResponse.ok) {
-                            clearInterval(pollInterval);
-                            const progressText = document.getElementById(`progress-text-${batchId}`);
-                            if (progressText) {
-                                progressText.textContent = 'Status: Error fetching progress.';
-                                progressText.classList.add('error');
-                            }
-                            activeBatches.delete(batchId);
-                            return;
-                        }
 
-                        const progressData = await progressResponse.json();
-                        updateBatchProgress(batchId, progressData);
+            // Poll for progress. Polling itself runs independently per-batch via
+            // setInterval, so it doesn't block other concurrent submissions either.
+            const pollInterval = setInterval(async () => {
+            	try {
+            		const progressResponse = await fetch(`/progress/${batchId}`);
+            		if (!progressResponse.ok) {
+            			clearInterval(pollInterval);
+            			const progressText = document.getElementById(`progress-text-${batchId}`);
+            			if (progressText) {
+            				progressText.textContent = 'Status: Error fetching progress.';
+            				progressText.classList.add('error');
+            			}
+            			activeBatches.delete(batchId);
+            			return;
+            		}
 
-                        if (progressData.status === 'Complete' || 
-                            progressData.status === 'Error' || 
-                            progressData.status === 'Failed') {
-                            clearInterval(pollInterval);
-                            
-                            // Cleanup if error/failed
-                            if (progressData.status === 'Error' || progressData.status === 'Failed') {
-                                pendingBatches.delete(batchId);
-                            }
-                        }
-                    } catch (error) {
-                        clearInterval(pollInterval);
-                        console.error('Progress polling error:', error);
-                        activeBatches.delete(batchId);
-                        pendingBatches.delete(batchId);
-                    }
-                }, 1000);
+            		const progressData = await progressResponse.json();
+            		updateBatchProgress(batchId, progressData);
+
+            		if (progressData.status === 'Complete' || 
+            			progressData.status === 'Error' || 
+            			progressData.status === 'Failed') {
+            			clearInterval(pollInterval);
+            		
+                        // Cleanup if error/failed
+            		if (progressData.status === 'Error' || progressData.status === 'Failed') {
+            			pendingBatches.delete(batchId);
+            		}
+            	}
             } catch (error) {
-                alert(`Error: ${error.message}`);
-                isSubmitting = false;
-                compressBtn.textContent = 'Compress Images';
-                updateFileListStatus();
+            	clearInterval(pollInterval);
+            	console.error('Progress polling error:', error);
+            	activeBatches.delete(batchId);
+            	pendingBatches.delete(batchId);
             }
+        }, 1000);
+
+            // submitBatch resolves as soon as the batch has started and its UI
+            // is wired up — it does NOT wait for compression to finish. This is
+            // what lets Promise.all() above kick off all folder batches together.
         };
 
         updateFileListStatus();
